@@ -17,10 +17,7 @@ import { apiAuth, getCurrentUser } from "./middleware/auth";
 import passport from "passport";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Apply API authentication middleware to all routes
-  app.use('/api', apiAuth);
-  
-  // Auth routes
+  // Auth routes - these need to be defined before the auth middleware
   app.post('/api/auth/register', async (req: Request, res: Response) => {
     try {
       const parseResult = insertUserSchema.safeParse(req.body);
@@ -93,6 +90,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(getCurrentUser(req));
     }
     res.status(401).json({ message: 'Not authenticated' });
+  });
+  
+  // Apply authentication middleware to protect other API routes
+  // This must come after the auth routes are defined
+  app.use('/api', (req, res, next) => {
+    // Skip auth middleware for auth routes
+    if (req.path.startsWith('/api/auth/')) {
+      return next();
+    }
+    
+    // Apply auth middleware for all other API routes
+    return apiAuth(req, res, next);
   });
   
   // API routes
