@@ -7,14 +7,40 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Get the user's auth token from Clerk
+async function getAuthToken(): Promise<string | null> {
+  // Check if the Clerk global object is available
+  if (window.Clerk) {
+    try {
+      const token = await window.Clerk.session?.getToken();
+      return token;
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const token = await getAuthToken();
+  const headers: Record<string, string> = {};
+  
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+  
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -29,7 +55,15 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const token = await getAuthToken();
+    const headers: Record<string, string> = {};
+    
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    
     const res = await fetch(queryKey[0] as string, {
+      headers,
       credentials: "include",
     });
 

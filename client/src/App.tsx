@@ -12,13 +12,62 @@ import Reports from "@/pages/Reports";
 import AIGeneration from "@/pages/AIGeneration";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
-import { ClerkProvider, SignedIn, SignedOut } from "@clerk/clerk-react";
+import { ClerkProvider, SignedIn, SignedOut, useClerk } from "@clerk/clerk-react";
+import { useEffect, useState } from "react";
 
 if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) {
-  throw new Error("Missing Clerk Publishable Key");
+  console.error("Missing Clerk Publishable Key");
 }
 
-const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "";
+
+// Error boundary component for Clerk
+function ClerkErrorBoundary({ children }: { children: React.ReactNode }) {
+  const [hasError, setHasError] = useState(false);
+  
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error("Clerk error caught:", event.error);
+      setHasError(true);
+    };
+    
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      console.error("Unhandled promise rejection:", event.reason);
+      // Only set error state if it's a Clerk-related error
+      if (event.reason?.toString().includes('clerk')) {
+        setHasError(true);
+      }
+    };
+    
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+  
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Authentication Error</h2>
+          <p className="mb-4">There was a problem initializing the authentication system.</p>
+          <p className="text-gray-700 mb-4">This might be due to network issues or an invalid API key.</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  return <>{children}</>;
+}
 
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any>, path?: string }) {
   return (
@@ -52,12 +101,14 @@ function Router() {
 
 function App() {
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey}>
-      <QueryClientProvider client={queryClient}>
-        <Router />
-        <Toaster />
-      </QueryClientProvider>
-    </ClerkProvider>
+    <ClerkErrorBoundary>
+      <ClerkProvider publishableKey={clerkPublishableKey}>
+        <QueryClientProvider client={queryClient}>
+          <Router />
+          <Toaster />
+        </QueryClientProvider>
+      </ClerkProvider>
+    </ClerkErrorBoundary>
   );
 }
 

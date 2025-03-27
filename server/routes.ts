@@ -11,13 +11,27 @@ import {
 } from "@shared/schema";
 import { moleculeService } from "./services/moleculeService";
 import { openaiService } from "./services/openaiService";
+import { requireAuth, optionalAuth, AuthRequest } from './auth';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication status endpoint
+  app.get('/api/auth/status', optionalAuth, (req: AuthRequest, res) => {
+    if (req.auth) {
+      res.json({ 
+        authenticated: true, 
+        userId: req.auth.userId,
+        sessionId: req.auth.sessionId
+      });
+    } else {
+      res.json({ authenticated: false });
+    }
+  });
+  
   // API routes
   const apiRouter = app.route("/api");
   
   // Dashboard stats
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", requireAuth, async (req: AuthRequest, res) => {
     try {
       const stats = await storage.getDashboardStats();
       res.json(stats);
@@ -28,7 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Molecules
-  app.get("/api/molecules", async (req, res) => {
+  app.get("/api/molecules", requireAuth, async (req: AuthRequest, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
@@ -40,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/molecules/:id", async (req, res) => {
+  app.get("/api/molecules/:id", requireAuth, async (req: AuthRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const molecule = await storage.getMolecule(id);
@@ -54,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/molecules", async (req, res) => {
+  app.post("/api/molecules", requireAuth, async (req: AuthRequest, res) => {
     try {
       const parseResult = insertMoleculeSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -69,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/molecules/search", async (req, res) => {
+  app.post("/api/molecules/search", requireAuth, async (req: AuthRequest, res) => {
     try {
       const { query, source } = req.body;
       
@@ -86,7 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Drug Candidates
-  app.get("/api/drug-candidates", async (req, res) => {
+  app.get("/api/drug-candidates", requireAuth, async (req: AuthRequest, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
@@ -98,7 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/drug-candidates/:id", async (req, res) => {
+  app.get("/api/drug-candidates/:id", requireAuth, async (req: AuthRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const candidate = await storage.getDrugCandidate(id);
@@ -112,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/drug-candidates", async (req, res) => {
+  app.post("/api/drug-candidates", requireAuth, async (req: AuthRequest, res) => {
     try {
       const parseResult = insertDrugCandidateSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -127,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch("/api/drug-candidates/:id", async (req, res) => {
+  app.patch("/api/drug-candidates/:id", requireAuth, async (req: AuthRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const candidate = await storage.getDrugCandidate(id);
@@ -144,7 +158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Projects
-  app.get("/api/projects", async (req, res) => {
+  app.get("/api/projects", requireAuth, async (req: AuthRequest, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
@@ -157,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Activities
-  app.get("/api/activities", async (req, res) => {
+  app.get("/api/activities", requireAuth, async (req: AuthRequest, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
@@ -170,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Research Papers
-  app.get("/api/research-papers", async (req, res) => {
+  app.get("/api/research-papers", requireAuth, async (req: AuthRequest, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
@@ -183,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // AI-powered endpoints
-  app.post("/api/ai/generate-candidates", async (req, res) => {
+  app.post("/api/ai/generate-candidates", requireAuth, async (req: AuthRequest, res) => {
     try {
       const { smiles, target, constraints } = req.body;
       
@@ -199,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/ai/predict-properties", async (req, res) => {
+  app.post("/api/ai/predict-properties", requireAuth, async (req: AuthRequest, res) => {
     try {
       const { smiles } = req.body;
       
