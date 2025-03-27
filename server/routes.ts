@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -7,12 +7,94 @@ import {
   insertDrugCandidateSchema,
   insertActivitySchema,
   insertProjectSchema,
-  insertResearchPaperSchema
+  insertResearchPaperSchema,
+  insertUserSchema
 } from "@shared/schema";
 import { moleculeService } from "./services/moleculeService";
 import { openaiService } from "./services/openaiService";
+import { authService } from "./services/authService";
+import { apiAuth, getCurrentUser } from "./middleware/auth";
+import passport from "passport";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Apply API authentication middleware to all routes
+  app.use('/api', apiAuth);
+  
+  // Auth routes
+  app.post('/api/auth/register', async (req: Request, res: Response) => {
+    try {
+      const parseResult = insertUserSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: 'Invalid user data', errors: parseResult.error.format() });
+      }
+      
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(parseResult.data.username);
+      if (existingUser) {
+        return res.status(400).json({ message: 'Username already exists' });
+      }
+      
+      // Register the user
+      const user = await authService.registerUser(parseResult.data);
+      
+      // Log the user in
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: 'Failed to login after registration' });
+        }
+        
+        // Return user without password
+        const userResponse = { ...user };
+        delete userResponse.password;
+        
+        return res.status(201).json(userResponse);
+      });
+    } catch (error) {
+      console.error('Error registering user:', error);
+      res.status(500).json({ message: 'Failed to register user' });
+    }
+  });
+  
+  app.post('/api/auth/login', (req: Request, res: Response, next) => {
+    passport.authenticate('local', (err, user, info) => {
+      if (err) {
+        return next(err);
+      }
+      
+      if (!user) {
+        return res.status(401).json({ message: info?.message || 'Invalid credentials' });
+      }
+      
+      req.login(user, (err) => {
+        if (err) {
+          return next(err);
+        }
+        
+        // Return user without password
+        const userResponse = { ...user };
+        delete userResponse.password;
+        
+        return res.json(userResponse);
+      });
+    })(req, res, next);
+  });
+  
+  app.post('/api/auth/logout', (req: Request, res: Response) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ message: 'Failed to logout' });
+      }
+      res.json({ message: 'Logged out successfully' });
+    });
+  });
+  
+  app.get('/api/auth/status', (req: Request, res: Response) => {
+    if (req.isAuthenticated()) {
+      return res.json(getCurrentUser(req));
+    }
+    res.status(401).json({ message: 'Not authenticated' });
+  });
+  
   // API routes
   const apiRouter = app.route("/api");
   

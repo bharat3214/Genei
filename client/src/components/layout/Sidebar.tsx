@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: "dashboard" },
@@ -11,15 +12,9 @@ const navigation = [
   { name: "Reports", href: "/reports", icon: "description" },
 ];
 
-interface SidebarProps {
-  user?: {
-    name: string;
-    role: string;
-  };
-}
-
-export default function Sidebar({ user = { name: "John Doe", role: "Research Scientist" } }: SidebarProps) {
+export default function Sidebar() {
   const [location] = useLocation();
+  const { user } = useAuth();
 
   return (
     <div className="flex flex-col w-64 bg-gray-800 border-r border-gray-700">
@@ -60,11 +55,11 @@ export default function Sidebar({ user = { name: "John Doe", role: "Research Sci
         <div className="flex-shrink-0 w-full group block">
           <div className="flex items-center">
             <div className="bg-gray-700 rounded-full h-8 w-8 flex items-center justify-center text-sm font-medium text-white">
-              {user.name.split(' ').map(n => n[0]).join('')}
+              {user?.fullName ? user.fullName.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-white">{user.name}</p>
-              <p className="text-xs font-medium text-gray-400">{user.role}</p>
+              <p className="text-sm font-medium text-white">{user?.fullName || 'User'}</p>
+              <p className="text-xs font-medium text-gray-400">{user?.role || 'Researcher'}</p>
             </div>
           </div>
         </div>

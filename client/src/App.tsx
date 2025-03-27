@@ -10,17 +10,21 @@ import PropertyPrediction from "@/pages/PropertyPrediction";
 import Literature from "@/pages/Literature";
 import Reports from "@/pages/Reports";
 import AIGeneration from "@/pages/AIGeneration";
+import AuthPage from "@/pages/auth-page";
+import { ProtectedRoute } from "./lib/protected-route";
+import { AuthProvider } from "@/hooks/use-auth";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/molecules" component={MoleculeExplorer} />
-      <Route path="/candidates" component={DrugCandidates} />
-      <Route path="/properties" component={PropertyPrediction} />
-      <Route path="/ai-generation" component={AIGeneration} />
-      <Route path="/literature" component={Literature} />
-      <Route path="/reports" component={Reports} />
+      <ProtectedRoute path="/" component={Dashboard} />
+      <ProtectedRoute path="/molecules" component={MoleculeExplorer} />
+      <ProtectedRoute path="/candidates" component={DrugCandidates} />
+      <ProtectedRoute path="/properties" component={PropertyPrediction} />
+      <ProtectedRoute path="/ai-generation" component={AIGeneration} />
+      <ProtectedRoute path="/literature" component={Literature} />
+      <ProtectedRoute path="/reports" component={Reports} />
+      <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -29,8 +33,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <AuthProvider>
+        <Router />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
