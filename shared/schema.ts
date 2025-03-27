@@ -106,6 +106,21 @@ export const insertResearchPaperSchema = createInsertSchema(researchPapers).omit
   createdAt: true,
 });
 
+// Messages model
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  senderId: integer("sender_id").notNull().references(() => users.id),
+  receiverId: integer("receiver_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -124,3 +139,6 @@ export type InsertActivity = z.infer<typeof insertActivitySchema>;
 
 export type ResearchPaper = typeof researchPapers.$inferSelect;
 export type InsertResearchPaper = z.infer<typeof insertResearchPaperSchema>;
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;

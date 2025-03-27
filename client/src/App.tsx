@@ -10,6 +10,7 @@ import PropertyPrediction from "@/pages/PropertyPrediction";
 import Literature from "@/pages/Literature";
 import Reports from "@/pages/Reports";
 import AIGeneration from "@/pages/AIGeneration";
+import Messaging from "@/pages/Messaging";
 import AuthPage from "@/pages/auth-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -24,6 +25,7 @@ function Router() {
       <ProtectedRoute path="/ai-generation" component={AIGeneration} />
       <ProtectedRoute path="/literature" component={Literature} />
       <ProtectedRoute path="/reports" component={Reports} />
+      <ProtectedRoute path="/messaging" component={Messaging} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

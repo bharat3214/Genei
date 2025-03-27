@@ -4,13 +4,15 @@ import {
   drugCandidates, type DrugCandidate, type InsertDrugCandidate,
   projects, type Project, type InsertProject,
   activities, type Activity, type InsertActivity,
-  researchPapers, type ResearchPaper, type InsertResearchPaper
+  researchPapers, type ResearchPaper, type InsertResearchPaper,
+  messages, type Message, type InsertMessage
 } from "@shared/schema";
 
 export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getAllUsers(): Promise<Map<number, User>>;
   createUser(user: InsertUser): Promise<User>;
   
   // Molecules
@@ -47,6 +49,15 @@ export interface IStorage {
     projectCount: number;
     researchPaperCount: number;
   }>;
+  
+  // Messages
+  getMessage(id: number): Promise<Message | undefined>;
+  getMessagesByUser(userId: number, limit?: number, offset?: number): Promise<Message[]>;
+  getConversation(userId1: number, userId2: number, limit?: number, offset?: number): Promise<Message[]>;
+  getUnreadMessageCount(userId: number): Promise<number>;
+  createMessage(message: InsertMessage): Promise<Message>;
+  markMessageAsRead(id: number): Promise<Message | undefined>;
+  markAllMessagesAsRead(receiverId: number, senderId?: number): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -56,6 +67,7 @@ export class MemStorage implements IStorage {
   private projects: Map<number, Project>;
   private activities: Map<number, Activity>;
   private researchPapers: Map<number, ResearchPaper>;
+  private messages: Map<number, Message>;
   
   private userIdCounter: number;
   private moleculeIdCounter: number;
@@ -63,6 +75,7 @@ export class MemStorage implements IStorage {
   private projectIdCounter: number;
   private activityIdCounter: number;
   private researchPaperIdCounter: number;
+  private messageIdCounter: number;
   
   constructor() {
     this.users = new Map();
@@ -71,6 +84,7 @@ export class MemStorage implements IStorage {
     this.projects = new Map();
     this.activities = new Map();
     this.researchPapers = new Map();
+    this.messages = new Map();
     
     this.userIdCounter = 1;
     this.moleculeIdCounter = 1;
@@ -78,6 +92,7 @@ export class MemStorage implements IStorage {
     this.projectIdCounter = 1;
     this.activityIdCounter = 1;
     this.researchPaperIdCounter = 1;
+    this.messageIdCounter = 1;
     
     // Add some initial data
     this.seedInitialData();
@@ -92,6 +107,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(
       (user) => user.username.toLowerCase() === username.toLowerCase(),
     );
+  }
+  
+  async getAllUsers(): Promise<Map<number, User>> {
+    return this.users;
   }
   
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -304,6 +323,80 @@ export class MemStorage implements IStorage {
       projectCount: this.projects.size,
       researchPaperCount: this.researchPapers.size
     };
+  }
+  
+  // Messages
+  async getMessage(id: number): Promise<Message | undefined> {
+    return this.messages.get(id);
+  }
+  
+  async getMessagesByUser(userId: number, limit = 20, offset = 0): Promise<Message[]> {
+    return Array.from(this.messages.values())
+      .filter(msg => msg.senderId === userId || msg.receiverId === userId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
+      .slice(offset, offset + limit);
+  }
+  
+  async getConversation(userId1: number, userId2: number, limit = 20, offset = 0): Promise<Message[]> {
+    return Array.from(this.messages.values())
+      .filter(msg => 
+        (msg.senderId === userId1 && msg.receiverId === userId2) || 
+        (msg.senderId === userId2 && msg.receiverId === userId1)
+      )
+      .sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0))
+      .slice(offset, offset + limit);
+  }
+  
+  async getUnreadMessageCount(userId: number): Promise<number> {
+    return Array.from(this.messages.values())
+      .filter(msg => msg.receiverId === userId && !msg.read)
+      .length;
+  }
+  
+  async createMessage(insertMessage: InsertMessage): Promise<Message> {
+    const id = this.messageIdCounter++;
+    const now = new Date();
+    const message: Message = {
+      ...insertMessage,
+      id,
+      createdAt: now
+    };
+    this.messages.set(id, message);
+    
+    // Create activity for the message
+    await this.createActivity({
+      type: "message_sent",
+      description: `Message sent to user ID ${insertMessage.receiverId}`,
+      userId: insertMessage.senderId,
+      metadata: {}
+    });
+    
+    return message;
+  }
+  
+  async markMessageAsRead(id: number): Promise<Message | undefined> {
+    const message = this.messages.get(id);
+    if (!message) return undefined;
+    
+    const updatedMessage: Message = {
+      ...message,
+      read: true
+    };
+    this.messages.set(id, updatedMessage);
+    return updatedMessage;
+  }
+  
+  async markAllMessagesAsRead(receiverId: number, senderId?: number): Promise<number> {
+    let count = 0;
+    this.messages.forEach(message => {
+      if (message.receiverId === receiverId && !message.read) {
+        if (senderId === undefined || message.senderId === senderId) {
+          message.read = true;
+          count++;
+        }
+      }
+    });
+    return count;
   }
   
   // Seed initial data
@@ -549,6 +642,47 @@ export class MemStorage implements IStorage {
     
     activities.forEach(activity => {
       this.createActivity(activity as InsertActivity);
+    });
+    
+    // Create a second test user for messaging
+    const user2: InsertUser = {
+      username: "janesmith",
+      password: "password123", // In a real app, this would be hashed
+      fullName: "Jane Smith",
+      role: "Research Lead"
+    };
+    const createdUser2 = this.createUser(user2);
+    
+    // Create some sample messages between users
+    const messages = [
+      {
+        senderId: 1,
+        receiverId: 2,
+        content: "Hi Jane, I've just completed the analysis of the new EGFR inhibitor. Results look promising!",
+        read: true
+      },
+      {
+        senderId: 2,
+        receiverId: 1,
+        content: "Great work, John! Can you share the detailed binding affinity data?",
+        read: true
+      },
+      {
+        senderId: 1,
+        receiverId: 2,
+        content: "Just sent you the report. The compound shows high specificity and low toxicity.",
+        read: true
+      },
+      {
+        senderId: 2,
+        receiverId: 1,
+        content: "I think we should move it to in vitro testing. Let's discuss this in the team meeting tomorrow.",
+        read: false
+      }
+    ];
+    
+    messages.forEach(message => {
+      this.createMessage(message as InsertMessage);
     });
   }
 }

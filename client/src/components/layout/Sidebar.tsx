@@ -10,6 +10,7 @@ const navigation = [
   { name: "AI Generation", href: "/ai-generation", icon: "model_training" },
   { name: "Literature", href: "/literature", icon: "menu_book" },
   { name: "Reports", href: "/reports", icon: "description" },
+  { name: "Messaging", href: "/messaging", icon: "chat" },
 ];
 
 export default function Sidebar() {
