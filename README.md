@@ -1,4 +1,3 @@
-Here’s a professionally formatted and polished version of your README file:
 
 ---
 
